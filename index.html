@@ -349,6 +349,91 @@
   }
   .restart-btn:hover{background:#343947;}
   .restart-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  /* =========================================================
+     Mode menu
+     ========================================================= */
+  .mode-list{display:flex; flex-direction:column; gap:10px;}
+  .mode-btn{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+    text-align:left;
+    font:inherit;
+    color:var(--cream);
+    background:var(--panel-edge);
+    border:2px solid transparent;
+    border-radius:14px;
+    padding:14px 16px;
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease;
+  }
+  .mode-btn:hover{transform:translateY(-2px); border-color:var(--gold);}
+  .mode-btn:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
+  .mode-btn .mode-icon{font-size:28px; line-height:1;}
+  .mode-btn .mode-title{display:block; font-family:'Fredoka',sans-serif; font-weight:600; font-size:16px;}
+  .mode-btn .mode-desc{display:block; font-size:13px; color:var(--dim); margin-top:2px;}
+
+  .back-btn{
+    background:none;
+    border:none;
+    padding:0;
+    margin:0 0 12px;
+    font:inherit;
+    font-size:13.5px;
+    color:var(--dim);
+    cursor:pointer;
+  }
+  .back-btn:hover{color:var(--cream);}
+  .back-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  /* --- "Which knight do you want?" picker --- */
+  .side-picker{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    max-width:280px;
+    margin:0 auto 16px;
+  }
+  .side-btn{
+    font-family:'Fredoka',sans-serif;
+    font-size:15px;
+    font-weight:600;
+    color:var(--cream);
+    background:var(--panel-edge);
+    border:2px solid transparent;
+    border-radius:14px;
+    padding:10px 8px;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+  }
+  .side-btn small{font-family:'Nunito',sans-serif; font-size:12px; font-weight:600; color:var(--dim);}
+  .side-btn:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
+  .side-btn.ember[aria-pressed="true"]{background:var(--ember-deep); border-color:var(--ember);}
+  .side-btn.frost[aria-pressed="true"]{background:var(--frost-deep); border-color:var(--frost);}
+
+  /* =========================================================
+     Online lobby
+     ========================================================= */
+  .link-row{display:flex; gap:8px; margin-bottom:10px;}
+  .link-row input{
+    flex:1;
+    min-width:0;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    color:var(--cream);
+    background:var(--bg);
+    border:1px solid var(--panel-edge);
+    border-radius:10px;
+    padding:9px 10px;
+  }
+  .status{font-size:14px; color:var(--dim); text-align:center; margin:14px 0;}
+  .status.error{color:var(--burned);}
+  .conn-status{font-size:13px; color:var(--gold); text-align:center; margin:0;}
 </style>
 </head>
 <body>
@@ -357,14 +442,46 @@
   <h1><span class="torch" aria-hidden="true">🔥</span> Knight's Isolation <span class="drop" aria-hidden="true">❄️</span></h1>
   <p class="tagline">Two knights. One shrinking board. Last knight who can move wins.</p>
 
-  <!-- ============ SETUP SCREEN ============ -->
-  <section class="card" id="setupScreen" aria-label="Game setup">
+  <!-- ============ MENU SCREEN ============ -->
+  <section class="card" id="menuScreen" aria-label="Choose how to play">
     <p class="rules">
-      Each knight hops like a chess knight <b>(2 squares one way, 1 the other)</b>,
-      jumping over anything in between.
-      Every square a knight leaves is gone for good — nobody can land there again.
+      Each knight moves in an L like a chess knight <b>(2 squares one way, then 1 to the side)</b>.
+      Every square a knight leaves is gone for good — nobody can land there again,
+      and <b>a knight can't pass over a gone square</b> on the 2-square part of its L.
       If it's your turn and your knight has <b>nowhere legal to go, you lose.</b>
     </p>
+    <div class="setup-label">How do you want to play?</div>
+    <div class="mode-list">
+      <button type="button" class="mode-btn" data-mode="computer">
+        <span class="mode-icon" aria-hidden="true">🤖</span>
+        <span><span class="mode-title">Play the computer</span>
+        <span class="mode-desc">A medium-strength opponent that sometimes slips up.</span></span>
+      </button>
+      <button type="button" class="mode-btn" data-mode="online">
+        <span class="mode-icon" aria-hidden="true">🌐</span>
+        <span><span class="mode-title">Play a friend online</span>
+        <span class="mode-desc">Send a link — your friend plays from their own device.</span></span>
+      </button>
+      <button type="button" class="mode-btn" data-mode="local">
+        <span class="mode-icon" aria-hidden="true">👥</span>
+        <span><span class="mode-title">Two players, one device</span>
+        <span class="mode-desc">Take turns on this screen.</span></span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ SETUP SCREEN ============ -->
+  <section class="card hidden" id="setupScreen" aria-label="Game setup">
+    <button type="button" class="back-btn" id="setupBackBtn">← Back</button>
+
+    <div id="sideSection">
+      <div class="setup-label" id="sideLabel">Which knight do you want?</div>
+      <div class="side-picker" id="sidePicker" role="group" aria-labelledby="sideLabel">
+        <button type="button" class="side-btn ember" data-side="1" aria-pressed="true">🔥 Ember<small>moves first</small></button>
+        <button type="button" class="side-btn frost" data-side="2" aria-pressed="false">❄️ Frost<small>moves second</small></button>
+      </div>
+    </div>
+
     <div class="setup-label" id="cornerLabel">Pick Ember's 🔥 starting corner</div>
     <div class="corner-grid" id="cornerGrid" role="group" aria-labelledby="cornerLabel">
       <button type="button" class="corner-btn" data-corner="tl" aria-pressed="false"><span class="arrow" aria-hidden="true">↖</span>Top&#8209;Left</button>
@@ -374,6 +491,24 @@
     </div>
     <p class="pick-summary" id="pickSummary" aria-live="polite"></p>
     <button type="button" class="start-btn" id="startBtn" disabled>Start Game</button>
+  </section>
+
+  <!-- ============ ONLINE LOBBY ============ -->
+  <section class="card hidden" id="lobbyScreen" aria-label="Online game">
+    <div id="hostPanel">
+      <div class="setup-label">Send this link to your friend</div>
+      <div class="link-row">
+        <input type="text" id="shareLink" readonly aria-label="Game link" placeholder="Creating link…">
+        <button type="button" class="restart-btn" id="copyBtn" disabled>Copy</button>
+      </div>
+      <div class="row">
+        <button type="button" class="restart-btn hidden" id="shareBtn">📤 Share…</button>
+      </div>
+    </div>
+    <p class="status" id="lobbyStatus" aria-live="polite"></p>
+    <div class="row">
+      <button type="button" class="restart-btn" id="lobbyCancelBtn">✕ Cancel</button>
+    </div>
   </section>
 
   <!-- ============ GAME SCREEN ============ -->
@@ -389,9 +524,11 @@
     </div>
 
     <div class="legend">
-      <span>🔥 <b class="e">Ember</b> moved: <span id="p1count">0</span></span>
-      <span><b class="f">Frost</b> ❄️ moved: <span id="p2count">0</span></span>
+      <span>🔥 <b class="e" id="p1name">Ember</b> moved: <span id="p1count">0</span></span>
+      <span><b class="f" id="p2name">Frost</b> ❄️ moved: <span id="p2count">0</span></span>
     </div>
+
+    <p class="conn-status hidden" id="connStatus" role="status"></p>
 
     <div class="settings-row">
       <label for="hintsToggle">Show possible moves</label>
@@ -403,14 +540,14 @@
     <p class="hint" id="hintText" aria-live="polite"></p>
 
     <div id="winBanner" class="win-banner hidden" role="status">
-      <div class="trophy" aria-hidden="true">🏆</div>
+      <div class="trophy" id="winIcon" aria-hidden="true">🏆</div>
       <h2 id="winText"></h2>
       <p id="winSub"></p>
     </div>
 
     <div class="row">
-      <button type="button" class="restart-btn" id="restartBtn">↺ New Setup</button>
-      <button type="button" class="restart-btn" id="rematchBtn">⚔ Same Corners, Rematch</button>
+      <button type="button" class="restart-btn" id="menuBtn">☰ Menu</button>
+      <button type="button" class="restart-btn" id="rematchBtn">⚔ Rematch</button>
     </div>
   </section>
 
@@ -431,8 +568,8 @@
   const FROST = 2;
 
   const PLAYERS = {
-    [EMBER]: { name: 'Ember', icon: '🔥', bannerClass: 'p1' },
-    [FROST]: { name: 'Frost', icon: '❄️', bannerClass: 'p2' }
+    [EMBER]: { name: 'Ember', icon: '🔥' },
+    [FROST]: { name: 'Frost', icon: '❄️' }
   };
 
   // Starting corners, keyed by the data-corner attribute on the setup buttons.
@@ -446,16 +583,34 @@
   // Frost always starts in the corner diagonally opposite Ember.
   const OPPOSITE = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' };
 
-  // The eight (row, column) jumps a chess knight can make.
+  // The eight (row, column) offsets of a knight's move.
   const KNIGHT_OFFSETS = [
     [-2, -1], [-2, 1], [-1, -2], [-1, 2],
     [ 1, -2], [ 1, 2], [ 2, -1], [ 2, 1]
   ];
 
+  // Game modes chosen on the menu screen.
+  const MODE_LOCAL = 'local';       // two players sharing this device
+  const MODE_COMPUTER = 'computer'; // you against the computer
+  const MODE_ONLINE = 'online';     // you against a friend on another device
+
+  // Computer opponent tuning.
+  const AI_DEPTH = 3;          // how many moves ahead it looks
+  const AI_MISTAKE_RATE = 0.2; // chance of playing a random move instead of its best one
+  const AI_THINK_MS = 600;     // pause before it moves, so its move is easy to follow
+
+  // Online play: PeerJS connects the two browsers directly (WebRTC). Its free
+  // public server only introduces them; moves never pass through it.
+  const PEERJS_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+  // Hash of that exact file: the browser refuses to run it if the CDN copy ever changes.
+  const PEERJS_INTEGRITY = 'sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR';
+  const URL_PARAMS = new URLSearchParams(location.search);
+  // Automated tests set ?transport=local to swap PeerJS for an in-browser stand-in.
+  const USE_LOCAL_TRANSPORT = URL_PARAMS.get('transport') === 'local';
+
   const HINT_ON_TEXT  = 'Tap a glowing gold square to move.';
   const HINT_OFF_TEXT = 'No glowing squares this time — work out the knight move, then tap your square.';
   const ILLEGAL_TEXT  = "That isn't a legal knight move — try another square.";
-  const GAME_OVER_TEXT = 'Play a rematch from the same corners, or pick new ones.';
 
   /* =========================================================
      DOM references
@@ -463,32 +618,58 @@
 
   const $ = (id) => document.getElementById(id);
 
-  const setupScreen = $('setupScreen');
-  const gameScreen  = $('gameScreen');
-  const cornerGrid  = $('cornerGrid');
-  const pickSummary = $('pickSummary');
-  const startBtn    = $('startBtn');
-  const boardEl     = $('board');
-  const turnBanner  = $('turnBanner');
-  const turnText    = $('turnText');
-  const movesLeftEl = $('movesLeft');
+  const screens = {
+    menu:  $('menuScreen'),
+    setup: $('setupScreen'),
+    lobby: $('lobbyScreen'),
+    game:  $('gameScreen')
+  };
+  const menuScreen   = $('menuScreen');
+  const setupBackBtn = $('setupBackBtn');
+  const sideSection  = $('sideSection');
+  const sidePicker   = $('sidePicker');
+  const cornerGrid   = $('cornerGrid');
+  const pickSummary  = $('pickSummary');
+  const startBtn     = $('startBtn');
+  const hostPanel    = $('hostPanel');
+  const shareLinkEl  = $('shareLink');
+  const copyBtn      = $('copyBtn');
+  const shareBtn     = $('shareBtn');
+  const lobbyStatus  = $('lobbyStatus');
+  const lobbyCancelBtn = $('lobbyCancelBtn');
+  const boardEl      = $('board');
+  const turnBanner   = $('turnBanner');
+  const turnText     = $('turnText');
+  const movesLeftEl  = $('movesLeft');
+  const nameEls      = { [EMBER]: $('p1name'), [FROST]: $('p2name') };
   const moveCountEls = { [EMBER]: $('p1count'), [FROST]: $('p2count') };
-  const winBanner   = $('winBanner');
-  const winText     = $('winText');
-  const winSub      = $('winSub');
-  const restartBtn  = $('restartBtn');
-  const rematchBtn  = $('rematchBtn');
-  const hintsToggle = $('hintsToggle');
-  const hintText    = $('hintText');
+  const connStatus   = $('connStatus');
+  const winBanner    = $('winBanner');
+  const winIcon      = $('winIcon');
+  const winText      = $('winText');
+  const winSub       = $('winSub');
+  const menuBtn      = $('menuBtn');
+  const rematchBtn   = $('rematchBtn');
+  const hintsToggle  = $('hintsToggle');
+  const hintText     = $('hintText');
 
   /* =========================================================
      State
      ========================================================= */
 
-  let chosenCorner = null;           // Ember's corner key ('tl' | 'tr' | 'bl' | 'br'), or null
-  let game = null;                   // Current game (see createGame), or null before the first game
-  let hintsOn = hintsToggle.checked; // Whether legal moves are highlighted
+  const session = {
+    mode: null,   // MODE_LOCAL | MODE_COMPUTER | MODE_ONLINE
+    mySide: null, // the knight this device controls (null in local mode: both)
+    corner: null  // Ember's starting corner key
+  };
+  let chosenCorner = null;           // corner picked on the setup screen
+  let chosenSide = EMBER;            // knight picked on the setup screen
+  let game = null;                   // current game (see createGame), or null
+  let hintsOn = hintsToggle.checked; // whether legal moves are highlighted
   let cellEls = [];                  // cellEls[r][c] -> the <button> for that square
+  let computerTimer = null;          // pending computer move, if any
+  let net = null;                    // online connection (see startHosting / joinGame)
+  let onlineAttempt = 0;             // bumped on leaving, so a slow PeerJS load can't revive a cancelled game
 
   /* =========================================================
      Game rules (pure logic — no DOM access)
@@ -497,6 +678,7 @@
   /**
    * Builds a fresh game with Ember on `cornerKey` and Frost opposite.
    * `burned[r][c]` is true once a knight has left that square.
+   * The object is plain JSON so it can be sent to an online opponent.
    */
   function createGame(cornerKey){
     const emberStart = CORNERS[cornerKey];
@@ -514,6 +696,17 @@
     };
   }
 
+  function cloneGame(g){
+    return {
+      burned: g.burned.map(row => row.slice()),
+      pos: { [EMBER]: { ...g.pos[EMBER] }, [FROST]: { ...g.pos[FROST] } },
+      current: g.current,
+      moveCounts: { ...g.moveCounts },
+      over: g.over,
+      winner: g.winner
+    };
+  }
+
   function opponentOf(player){
     return player === EMBER ? FROST : EMBER;
   }
@@ -523,9 +716,24 @@
   }
 
   /**
-   * Every square `player`'s knight can jump to: on the board, not burned,
-   * and not occupied by the other knight. Like a real chess knight it jumps,
-   * so squares in between never block it.
+   * The two squares a knight travels over on the long (2-square) leg of its
+   * L, before the final sideways step. E.g. for "2 up, 1 right" these are the
+   * squares 1 up and 2 up, directly above the start.
+   */
+  function pathSquares(from, dr, dc){
+    if(Math.abs(dr) === 2){
+      const step = dr / 2;
+      return [{ r: from.r + step, c: from.c }, { r: from.r + dr, c: from.c }];
+    }
+    const step = dc / 2;
+    return [{ r: from.r, c: from.c + step }, { r: from.r, c: from.c + dc }];
+  }
+
+  /**
+   * Every square `player`'s knight can move to: on the board, not burned,
+   * not occupied by the other knight, and with no burned square on the long
+   * leg of the L (see pathSquares). Unlike a chess knight, it cannot jump
+   * over burned squares.
    */
   function legalMoves(g, player){
     const from = g.pos[player];
@@ -536,6 +744,7 @@
       if(!isOnBoard(r, c)) continue;
       if(g.burned[r][c]) continue;
       if(r === other.r && c === other.c) continue;
+      if(pathSquares(from, dr, dc).some(sq => g.burned[sq.r][sq.c])) continue;
       moves.push({ r, c });
     }
     return moves;
@@ -571,10 +780,128 @@
   }
 
   /* =========================================================
-     Setup screen
+     Computer opponent (pure logic)
      ========================================================= */
 
-  function renderCornerPicker(){
+  const WIN_SCORE = 1000;
+
+  /**
+   * How good `g` looks for `me`: having more moves available than the
+   * opponent is good, and squeezing the opponent counts a bit extra.
+   * A finished game scores ±WIN_SCORE, plus `depthLeft` so that quicker wins
+   * (and slower losses) are preferred.
+   */
+  function evaluate(g, me, depthLeft){
+    if(g.over) return g.winner === me ? WIN_SCORE + depthLeft : -WIN_SCORE - depthLeft;
+    return legalMoves(g, me).length - 1.5 * legalMoves(g, opponentOf(me)).length;
+  }
+
+  /** Minimax with alpha-beta pruning, scored from `me`'s point of view. */
+  function search(g, depthLeft, alpha, beta, me){
+    if(depthLeft === 0 || g.over) return evaluate(g, me, depthLeft);
+    const maximizing = g.current === me;
+    let best = maximizing ? -Infinity : Infinity;
+    for(const m of legalMoves(g, g.current)){
+      const child = cloneGame(g);
+      makeMove(child, m.r, m.c);
+      const score = search(child, depthLeft - 1, alpha, beta, me);
+      if(maximizing){
+        best = Math.max(best, score);
+        alpha = Math.max(alpha, score);
+      } else {
+        best = Math.min(best, score);
+        beta = Math.min(beta, score);
+      }
+      if(beta <= alpha) break;
+    }
+    return best;
+  }
+
+  /**
+   * Picks a move for the player whose turn it is. Usually the best move found
+   * by looking `depth` moves ahead (ties broken at random), but with
+   * probability `mistakeRate` just a random legal move — that is what makes
+   * it "medium" rather than hard.
+   */
+  function chooseComputerMove(g, { depth = AI_DEPTH, mistakeRate = AI_MISTAKE_RATE, random = Math.random } = {}){
+    const me = g.current;
+    const moves = legalMoves(g, me);
+    if(random() < mistakeRate) return moves[Math.floor(random() * moves.length)];
+
+    let bestScore = -Infinity;
+    let bestMoves = [];
+    for(const m of moves){
+      const child = cloneGame(g);
+      makeMove(child, m.r, m.c);
+      const score = search(child, depth - 1, -Infinity, Infinity, me);
+      if(score > bestScore){
+        bestScore = score;
+        bestMoves = [m];
+      } else if(score === bestScore){
+        bestMoves.push(m);
+      }
+    }
+    return bestMoves[Math.floor(random() * bestMoves.length)];
+  }
+
+  /* =========================================================
+     Screens and labels
+     ========================================================= */
+
+  function showScreen(name){
+    for(const [key, el] of Object.entries(screens)){
+      el.classList.toggle('hidden', key !== name);
+    }
+  }
+
+  /** How a player is named on screen, e.g. "You", "Computer" or "Frost". */
+  function displayName(player){
+    if(session.mode === MODE_LOCAL) return PLAYERS[player].name;
+    if(player === session.mySide) return 'You';
+    return session.mode === MODE_COMPUTER ? 'Computer' : 'Friend';
+  }
+
+  /** True when this device may move right now. */
+  function isMyTurn(){
+    if(!game || game.over) return false;
+    if(session.mode === MODE_LOCAL) return true;
+    if(session.mode === MODE_ONLINE && !isConnected()) return false;
+    return game.current === session.mySide;
+  }
+
+  function setConnStatus(text){
+    connStatus.textContent = text;
+    connStatus.classList.toggle('hidden', !text);
+  }
+
+  /* =========================================================
+     Menu and setup screens
+     ========================================================= */
+
+  function showMenu(){
+    stopComputer();
+    leaveOnlineGame();
+    game = null;
+    session.mode = null;
+    showScreen('menu');
+  }
+
+  function showSetup(mode){
+    session.mode = mode;
+    chosenCorner = null;
+    chosenSide = EMBER;
+    // In local mode both knights are played here, so there is no side to pick.
+    sideSection.classList.toggle('hidden', mode === MODE_LOCAL);
+    startBtn.textContent = mode === MODE_ONLINE ? 'Create game link' : 'Start Game';
+    renderSetup();
+    showScreen('setup');
+  }
+
+  function renderSetup(){
+    for(const btn of sidePicker.querySelectorAll('.side-btn')){
+      btn.setAttribute('aria-pressed', String(Number(btn.dataset.side) === chosenSide));
+    }
+
     for(const btn of cornerGrid.querySelectorAll('.corner-btn')){
       const key = btn.dataset.corner;
       btn.classList.remove('picked-ember', 'picked-frost', 'faded');
@@ -597,15 +924,70 @@
     startBtn.disabled = !chosenCorner;
   }
 
-  function showSetup(){
-    gameScreen.classList.add('hidden');
-    setupScreen.classList.remove('hidden');
-    chosenCorner = null;
-    renderCornerPicker();
+  /* =========================================================
+     Starting and playing a game
+     ========================================================= */
+
+  /** Starts a new game in the current session's mode, corner and side. */
+  function startGame(){
+    stopComputer();
+    game = createGame(session.corner);
+    if(cellEls.length === 0) buildBoard();
+    rematchBtn.textContent = session.mode === MODE_ONLINE ? '⚔ Rematch (swap sides)' : '⚔ Rematch';
+    showScreen('game');
+    render();
+    scheduleComputerMove();
+  }
+
+  /**
+   * Rematch from the same corner. Online, the players swap knights each time
+   * so neither keeps the first move.
+   */
+  function rematch(){
+    if(session.mode === MODE_ONLINE){
+      if(net.role === 'guest'){
+        sendToPeer({ type: 'rematch' });
+        return;
+      }
+      session.mySide = opponentOf(session.mySide);
+      startGame();
+      sendState();
+      return;
+    }
+    startGame();
+  }
+
+  /** Plays (r, c) for whoever's turn it is on this device, then updates everyone. */
+  function playMove(r, c){
+    if(!makeMove(game, r, c)) return false;
+    render();
+    if(session.mode === MODE_ONLINE){
+      if(net.role === 'host') sendState();
+      else sendToPeer({ type: 'move', r, c });
+    }
+    scheduleComputerMove();
+    return true;
+  }
+
+  function scheduleComputerMove(){
+    if(session.mode !== MODE_COMPUTER || !game || game.over || game.current === session.mySide) return;
+    const thisGame = game;
+    computerTimer = setTimeout(() => {
+      computerTimer = null;
+      if(game !== thisGame || game.over) return;
+      const move = chooseComputerMove(game);
+      makeMove(game, move.r, move.c);
+      render();
+    }, AI_THINK_MS);
+  }
+
+  function stopComputer(){
+    clearTimeout(computerTimer);
+    computerTimer = null;
   }
 
   /* =========================================================
-     Game screen
+     Board rendering
      ========================================================= */
 
   /** Chess-style name for a square, e.g. row 0 / col 0 -> "a8". */
@@ -632,14 +1014,6 @@
     }
   }
 
-  function startGame(cornerKey){
-    game = createGame(cornerKey);
-    setupScreen.classList.add('hidden');
-    gameScreen.classList.remove('hidden');
-    if(cellEls.length === 0) buildBoard();
-    render();
-  }
-
   /** Returns the player whose knight stands on (r, c), or null. */
   function knightAt(r, c){
     for(const player of [EMBER, FROST]){
@@ -652,37 +1026,74 @@
   /** Redraws the board and status panels from `game`. */
   function render(){
     const moves = game.over ? [] : legalMoves(game, game.current);
+    const myTurn = isMyTurn();
 
     for(let r = 0; r < BOARD_SIZE; r++){
       for(let c = 0; c < BOARD_SIZE; c++){
-        renderCell(cellEls[r][c], r, c, containsSquare(moves, r, c));
+        renderCell(cellEls[r][c], r, c, containsSquare(moves, r, c), myTurn);
       }
     }
 
     for(const player of [EMBER, FROST]){
+      nameEls[player].textContent = displayName(player);
       moveCountEls[player].textContent = game.moveCounts[player];
     }
 
     hintText.classList.remove('warn');
 
     if(game.over){
-      const winner = PLAYERS[game.winner];
-      const loser = PLAYERS[opponentOf(game.winner)];
-      turnBanner.classList.add('hidden');
-      winBanner.classList.remove('hidden');
-      winText.textContent = `${winner.icon} ${winner.name} wins!`;
-      winSub.textContent = `${loser.name} has no legal moves left.`;
-      hintText.textContent = GAME_OVER_TEXT;
-    } else {
-      const current = PLAYERS[game.current];
-      winBanner.classList.add('hidden');
-      turnBanner.classList.remove('hidden');
-      turnBanner.classList.toggle('p1', game.current === EMBER);
-      turnBanner.classList.toggle('p2', game.current === FROST);
-      turnText.textContent = `${current.icon} ${current.name}'s turn`;
-      movesLeftEl.textContent = moves.length + (moves.length === 1 ? ' legal move' : ' legal moves');
-      hintText.textContent = hintsOn ? HINT_ON_TEXT : HINT_OFF_TEXT;
+      renderGameOver();
+      return;
     }
+
+    const current = game.current;
+    winBanner.classList.add('hidden');
+    turnBanner.classList.remove('hidden');
+    turnBanner.classList.toggle('p1', current === EMBER);
+    turnBanner.classList.toggle('p2', current === FROST);
+    movesLeftEl.textContent = moves.length + (moves.length === 1 ? ' legal move' : ' legal moves');
+
+    const icon = PLAYERS[current].icon;
+    if(session.mode === MODE_LOCAL || current === session.mySide){
+      turnText.textContent = session.mode === MODE_LOCAL
+        ? `${icon} ${PLAYERS[current].name}'s turn`
+        : `${icon} Your turn`;
+      hintText.textContent = hintsOn ? HINT_ON_TEXT : HINT_OFF_TEXT;
+    } else if(session.mode === MODE_COMPUTER){
+      turnText.textContent = `${icon} Computer is thinking…`;
+      hintText.textContent = 'Wait for the computer to move.';
+    } else {
+      turnText.textContent = `${icon} Friend's turn`;
+      hintText.textContent = 'Waiting for your friend to move…';
+    }
+  }
+
+  function renderGameOver(){
+    const winner = game.winner;
+    const loser = opponentOf(winner);
+    turnBanner.classList.add('hidden');
+    winBanner.classList.remove('hidden');
+
+    if(session.mode === MODE_LOCAL){
+      winIcon.textContent = '🏆';
+      winText.textContent = `${PLAYERS[winner].icon} ${PLAYERS[winner].name} wins!`;
+      winSub.textContent = `${PLAYERS[loser].name} has no legal moves left.`;
+    } else if(winner === session.mySide){
+      winIcon.textContent = '🏆';
+      winText.textContent = `${PLAYERS[winner].icon} You win!`;
+      winSub.textContent = session.mode === MODE_COMPUTER
+        ? 'The computer has no legal moves left.'
+        : 'Your friend has no legal moves left.';
+    } else {
+      winIcon.textContent = '😔';
+      winText.textContent = session.mode === MODE_COMPUTER
+        ? `${PLAYERS[winner].icon} The computer wins`
+        : `${PLAYERS[winner].icon} Your friend wins`;
+      winSub.textContent = 'You have no legal moves left.';
+    }
+    hintText.textContent = session.mode === MODE_ONLINE
+      ? 'Play a rematch with sides swapped, or go back to the menu.'
+      : 'Play a rematch from the same corners, or go back to the menu.';
   }
 
   /**
@@ -690,16 +1101,17 @@
    *
    * With hints on, only legal squares are clickable. With hints off, every
    * open square is clickable, so keyboard focus can't give the answer away;
-   * an illegal pick just shows a warning.
+   * an illegal pick just shows a warning. Nothing is clickable while it is
+   * the computer's or the online friend's turn.
    */
-  function renderCell(cell, r, c, isLegal){
+  function renderCell(cell, r, c, isLegal, myTurn){
     const burned = game.burned[r][c];
     const knight = knightAt(r, c);
-    const showDot = isLegal && hintsOn;
+    const showDot = myTurn && isLegal && hintsOn;
 
     cell.classList.toggle('inactive', burned);
     cell.classList.toggle('legal', showDot);
-    cell.disabled = game.over || burned || knight !== null || (hintsOn && !isLegal);
+    cell.disabled = !myTurn || burned || knight !== null || (hintsOn && !isLegal);
 
     let content = null;
     let description;
@@ -724,35 +1136,437 @@
   }
 
   /* =========================================================
+     Online play
+     ---------------------------------------------------------
+     The host (who created the link) owns the real game: it checks every
+     move the guest sends and replies with the full game state, so the two
+     boards can never drift apart. If the guest reloads the page, it simply
+     reconnects and receives the current state again.
+
+     Messages (all plain objects):
+       host → guest  { type: 'state', game, guestSide, corner }
+                     { type: 'full' }   game already has two players
+       guest → host  { type: 'hello', token }  join / rejoin; `token` lets the
+                                       host recognise the same friend after a reload
+                     { type: 'move', r, c }
+                     { type: 'rematch' }
+       either way    { type: 'bye' }    leaving the game
+     ========================================================= */
+
+  let peerLibrary = null;
+
+  /** Loads PeerJS on first use (or the local stand-in used by tests). */
+  function loadPeerLibrary(){
+    if(USE_LOCAL_TRANSPORT) return Promise.resolve(LocalPeer);
+    if(window.Peer) return Promise.resolve(window.Peer);
+    if(!peerLibrary){
+      peerLibrary = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = PEERJS_URL;
+        script.integrity = PEERJS_INTEGRITY;
+        script.crossOrigin = 'anonymous';
+        script.onload = () => resolve(window.Peer);
+        script.onerror = () => { peerLibrary = null; reject(new Error('Could not load PeerJS')); };
+        document.head.appendChild(script);
+      });
+    }
+    return peerLibrary;
+  }
+
+  function isConnected(){
+    return Boolean(net && net.conn && net.conn.open);
+  }
+
+  function sendToPeer(msg){
+    if(isConnected()) net.conn.send(msg);
+  }
+
+  function sendState(){
+    if(net && net.role === 'host'){
+      sendToPeer({ type: 'state', game, guestSide: opponentOf(session.mySide), corner: session.corner });
+    }
+  }
+
+  function showLobby({ hosting }){
+    hostPanel.classList.toggle('hidden', !hosting);
+    shareLinkEl.value = '';
+    copyBtn.disabled = true;
+    shareBtn.classList.add('hidden');
+    setLobbyStatus(hosting ? 'Creating your game link…' : "Joining your friend's game…");
+    lobbyCancelBtn.textContent = hosting ? '✕ Cancel' : '← Menu';
+    showScreen('lobby');
+  }
+
+  function setLobbyStatus(text, isError = false){
+    lobbyStatus.textContent = text;
+    lobbyStatus.classList.toggle('error', isError);
+  }
+
+  /** Friendly text for PeerJS error types. */
+  function describePeerError(err){
+    switch(err && err.type){
+      case 'peer-unavailable':
+        return "Couldn't find that game. The link may be old, or your friend closed the page.";
+      case 'browser-incompatible':
+        return "This browser can't play online. Try a recent Chrome, Firefox, Safari or Edge.";
+      case 'network':
+      case 'server-error':
+      case 'socket-error':
+        return "Couldn't reach the connection server. Check your internet connection and try again.";
+      default:
+        return 'Something went wrong with the connection. Please try again.';
+    }
+  }
+
+  /** Host: create a link, wait for the friend, then start the game. */
+  function startHosting(){
+    showLobby({ hosting: true });
+    const attempt = onlineAttempt;
+    loadPeerLibrary().then(Peer => {
+      if(attempt !== onlineAttempt) return; // cancelled while loading
+      const peer = new Peer();
+      net = { role: 'host', peer, conn: null };
+
+      peer.on('open', id => {
+        const link = location.origin + location.pathname + '?join=' + encodeURIComponent(id) +
+          (USE_LOCAL_TRANSPORT ? '&transport=local' : '');
+        shareLinkEl.value = link;
+        copyBtn.disabled = false;
+        shareBtn.classList.toggle('hidden', !navigator.share);
+        setLobbyStatus('Waiting for your friend to open the link…');
+      });
+      peer.on('connection', conn => acceptGuest(conn));
+      // Lost the introduction server (not the friend): reconnect so the link keeps working.
+      peer.on('disconnected', () => { if(net && net.peer === peer && !peer.destroyed) peer.reconnect(); });
+      peer.on('error', err => {
+        if(err.type === 'peer-unavailable') return;
+        if(game) setConnStatus(describePeerError(err));
+        else setLobbyStatus(describePeerError(err), true);
+      });
+    }).catch(() => setLobbyStatus("Couldn't load online play. Check your internet connection and try again.", true));
+  }
+
+  /**
+   * Host: someone opened the link. They only get the seat once they say
+   * hello (see admitGuest), so a third person can be turned away.
+   */
+  function acceptGuest(conn){
+    conn.on('data', msg => handleGuestMessage(conn, msg));
+    conn.on('close', () => {
+      if(!net || net.conn !== conn) return;
+      net.conn = null;
+      if(game){
+        setConnStatus('Your friend disconnected. They can rejoin with the same link.');
+        render();
+      }
+    });
+  }
+
+  /**
+   * Host: give `conn` the guest seat, unless a different friend is already
+   * connected. A reloaded guest sends the same token, so it replaces its own
+   * old connection even if that hasn't been noticed as closed yet.
+   */
+  function admitGuest(conn, token){
+    const sameGuest = token !== '' && token === net.guestToken;
+    if(isConnected() && net.conn !== conn && !sameGuest){
+      conn.send({ type: 'full' });
+      setTimeout(() => conn.close(), 500);
+      return;
+    }
+    const old = net.conn;
+    net.conn = conn;
+    net.guestToken = token;
+    if(old && old !== conn) old.close();
+    setConnStatus('');
+    if(game) render();
+    else startGame();
+    sendState();
+  }
+
+  function handleGuestMessage(conn, msg){
+    if(!net || !msg || typeof msg !== 'object') return;
+    if(msg.type === 'hello'){
+      admitGuest(conn, typeof msg.token === 'string' ? msg.token : '');
+      return;
+    }
+    if(net.conn !== conn) return; // only the seated guest may play
+    switch(msg.type){
+      case 'move':
+        // Only accept a legal move by the guest's own knight; otherwise the
+        // state we send back puts the guest's board right again.
+        if(game && game.current !== session.mySide &&
+           Number.isInteger(msg.r) && Number.isInteger(msg.c) && makeMove(game, msg.r, msg.c)){
+          render();
+        }
+        sendState();
+        break;
+      case 'rematch':
+        if(game && game.over) rematch();
+        break;
+      case 'bye':
+        net.conn = null;
+        conn.close();
+        setConnStatus('Your friend left the game. They can rejoin with the same link.');
+        render();
+        break;
+    }
+  }
+
+  /** Guest: a random id kept for this tab, so a reload rejoins as the same friend. */
+  function guestToken(hostId){
+    const storageKey = 'ki-guest-' + hostId;
+    let token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try {
+      token = sessionStorage.getItem(storageKey) || token;
+      sessionStorage.setItem(storageKey, token);
+    } catch(e){
+      // Storage blocked (e.g. private mode): a reload will then look like a new friend.
+    }
+    return token;
+  }
+
+  /** Guest: connect to the game whose id is in the link. */
+  function joinGame(hostId){
+    session.mode = MODE_ONLINE;
+    showLobby({ hosting: false });
+    const attempt = onlineAttempt;
+    loadPeerLibrary().then(Peer => {
+      if(attempt !== onlineAttempt) return; // left while loading
+      const peer = new Peer();
+      net = { role: 'guest', peer, conn: null };
+
+      peer.on('open', () => {
+        const conn = peer.connect(hostId, { reliable: true });
+        net.conn = conn;
+        conn.on('open', () => conn.send({ type: 'hello', token: guestToken(hostId) }));
+        conn.on('data', msg => { if(net && net.conn === conn) handleHostMessage(msg); });
+        conn.on('close', () => {
+          if(!net || net.conn !== conn) return;
+          if(game){
+            // After a 'bye' the friend has gone for good, so keep that message.
+            if(!net.friendLeft) setConnStatus('Lost connection to your friend. Reload the page to rejoin.');
+            render();
+          } else {
+            setLobbyStatus('Lost connection to your friend. Reload the page to try again.', true);
+          }
+        });
+      });
+      peer.on('error', err => {
+        if(game) setConnStatus(describePeerError(err));
+        else setLobbyStatus(describePeerError(err), true);
+      });
+    }).catch(() => setLobbyStatus("Couldn't load online play. Check your internet connection and try again.", true));
+  }
+
+  function handleHostMessage(msg){
+    if(!msg || typeof msg !== 'object') return;
+    switch(msg.type){
+      case 'state': {
+        if(!isValidGame(msg.game) || (msg.guestSide !== EMBER && msg.guestSide !== FROST) ||
+           !(msg.corner in CORNERS)) return;
+        const isNewGame = !game || msg.game.moveCounts[EMBER] + msg.game.moveCounts[FROST] === 0;
+        const sidesSwapped = game && session.mySide !== msg.guestSide;
+        session.mySide = msg.guestSide;
+        session.corner = msg.corner;
+        game = msg.game;
+        if(cellEls.length === 0) buildBoard();
+        rematchBtn.textContent = '⚔ Rematch (swap sides)';
+        showScreen('game');
+        setConnStatus(isNewGame && sidesSwapped
+          ? `New game — sides swapped. You are ${PLAYERS[session.mySide].icon} ${PLAYERS[session.mySide].name}.`
+          : '');
+        render();
+        break;
+      }
+      case 'full':
+        setLobbyStatus('This game already has two players.', true);
+        break;
+      case 'bye':
+        net.friendLeft = true;
+        setConnStatus('Your friend left the game. Go back to the menu to start a new one.');
+        break;
+    }
+  }
+
+  /** Checks a game object received from the network before using it. */
+  function isValidGame(g){
+    const isSquare = p => p && Number.isInteger(p.r) && Number.isInteger(p.c) && isOnBoard(p.r, p.c);
+    return Boolean(g) &&
+      Array.isArray(g.burned) && g.burned.length === BOARD_SIZE &&
+      g.burned.every(row => Array.isArray(row) && row.length === BOARD_SIZE && row.every(v => typeof v === 'boolean')) &&
+      g.pos && isSquare(g.pos[EMBER]) && isSquare(g.pos[FROST]) &&
+      (g.current === EMBER || g.current === FROST) &&
+      g.moveCounts && Number.isInteger(g.moveCounts[EMBER]) && Number.isInteger(g.moveCounts[FROST]) &&
+      typeof g.over === 'boolean' &&
+      (g.winner === null || g.winner === EMBER || g.winner === FROST);
+  }
+
+  /** Closes any online connection and forgets the join link. */
+  function leaveOnlineGame(){
+    onlineAttempt++;
+    if(!net) return;
+    sendToPeer({ type: 'bye' });
+    const { peer } = net;
+    net = null;
+    // Give the goodbye a moment to go out before tearing down the connection.
+    setTimeout(() => peer.destroy(), 200);
+    setConnStatus('');
+    if(URL_PARAMS.has('join')){
+      URL_PARAMS.delete('join');
+      const query = URL_PARAMS.toString();
+      history.replaceState(null, '', location.pathname + (query ? '?' + query : ''));
+    }
+  }
+
+  /* =========================================================
+     Local stand-in for PeerJS (automated tests only)
+     ---------------------------------------------------------
+     Mimics the small part of the PeerJS API used above, passing messages
+     between tabs of the same browser with BroadcastChannel. Only used when
+     the page is opened with ?transport=local.
+     ========================================================= */
+
+  class LocalPeer {
+    constructor(){
+      this.id = 'local-' + Math.random().toString(36).slice(2, 10);
+      this.handlers = {};
+      this.conns = {};
+      this.destroyed = false;
+      this.inbox = new BroadcastChannel('ki-peer-' + this.id);
+      this.inbox.onmessage = e => this.receive(e.data);
+      window.addEventListener('pagehide', () => this.destroy());
+      setTimeout(() => this.emit('open', this.id));
+    }
+    on(event, handler){ this.handlers[event] = handler; }
+    emit(event, arg){ if(this.handlers[event]) this.handlers[event](arg); }
+    post(remoteId, msg){
+      const channel = new BroadcastChannel('ki-peer-' + remoteId);
+      channel.postMessage({ ...msg, from: this.id });
+      channel.close();
+    }
+    connect(remoteId){
+      const conn = new LocalConn(this, remoteId);
+      this.conns[remoteId] = conn;
+      this.post(remoteId, { kind: 'connect' });
+      conn.timeout = setTimeout(() => this.emit('error', { type: 'peer-unavailable' }), 2000);
+      return conn;
+    }
+    receive(msg){
+      if(this.destroyed) return;
+      const conn = this.conns[msg.from];
+      if(msg.kind === 'connect'){
+        const incoming = new LocalConn(this, msg.from);
+        this.conns[msg.from] = incoming;
+        this.post(msg.from, { kind: 'accept' });
+        this.emit('connection', incoming);
+        setTimeout(() => incoming.markOpen());
+      } else if(msg.kind === 'accept' && conn){
+        clearTimeout(conn.timeout);
+        conn.markOpen();
+      } else if(msg.kind === 'data' && conn && conn.open){
+        conn.emit('data', msg.data);
+      } else if(msg.kind === 'close' && conn){
+        conn.markClosed();
+      }
+    }
+    reconnect(){}
+    destroy(){
+      if(this.destroyed) return;
+      for(const conn of Object.values(this.conns)) conn.close();
+      this.destroyed = true;
+      this.inbox.close();
+    }
+  }
+
+  class LocalConn {
+    constructor(peer, remoteId){
+      this.peer = peer;
+      this.remoteId = remoteId;
+      this.handlers = {};
+      this.open = false;
+    }
+    on(event, handler){ this.handlers[event] = handler; }
+    emit(event, arg){ if(this.handlers[event]) this.handlers[event](arg); }
+    markOpen(){ this.open = true; this.emit('open'); }
+    markClosed(){
+      if(!this.open) return;
+      this.open = false;
+      this.emit('close');
+    }
+    send(data){ if(this.open) this.peer.post(this.remoteId, { kind: 'data', data }); }
+    close(){
+      if(this.open) this.peer.post(this.remoteId, { kind: 'close' });
+      this.markClosed();
+    }
+  }
+
+  /* =========================================================
      Event handlers
      ========================================================= */
+
+  menuScreen.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mode-btn');
+    if(btn) showSetup(btn.dataset.mode);
+  });
+
+  setupBackBtn.addEventListener('click', showMenu);
+
+  sidePicker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.side-btn');
+    if(!btn) return;
+    chosenSide = Number(btn.dataset.side);
+    renderSetup();
+  });
 
   cornerGrid.addEventListener('click', (e) => {
     const btn = e.target.closest('.corner-btn');
     if(!btn) return;
     chosenCorner = btn.dataset.corner;
-    renderCornerPicker();
+    renderSetup();
   });
 
   startBtn.addEventListener('click', () => {
-    if(chosenCorner) startGame(chosenCorner);
+    if(!chosenCorner) return;
+    session.corner = chosenCorner;
+    session.mySide = session.mode === MODE_LOCAL ? null : chosenSide;
+    if(session.mode === MODE_ONLINE) startHosting();
+    else startGame();
   });
 
-  restartBtn.addEventListener('click', showSetup);
-
-  rematchBtn.addEventListener('click', () => {
-    if(chosenCorner) startGame(chosenCorner);
+  copyBtn.addEventListener('click', () => {
+    shareLinkEl.select();
+    const done = () => {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+    };
+    if(navigator.clipboard) navigator.clipboard.writeText(shareLinkEl.value).then(done, () => {});
+    else if(document.execCommand('copy')) done();
   });
+
+  shareBtn.addEventListener('click', () => {
+    navigator.share({
+      title: "Knight's Isolation",
+      text: "Play Knight's Isolation with me!",
+      url: shareLinkEl.value
+    }).catch(() => {}); // the user closed the share sheet
+  });
+
+  lobbyCancelBtn.addEventListener('click', () => {
+    const wasHosting = net ? net.role === 'host' : !hostPanel.classList.contains('hidden');
+    leaveOnlineGame();
+    if(wasHosting) showSetup(MODE_ONLINE);
+    else showMenu();
+  });
+
+  menuBtn.addEventListener('click', showMenu);
+  rematchBtn.addEventListener('click', rematch);
 
   // One delegated listener for all 64 squares.
   boardEl.addEventListener('click', (e) => {
     const cell = e.target.closest('.cell');
-    if(!cell || cell.disabled || !game || game.over) return;
-    const r = Number(cell.dataset.r);
-    const c = Number(cell.dataset.c);
-    if(makeMove(game, r, c)){
-      render();
-    } else {
+    if(!cell || cell.disabled || !isMyTurn()) return;
+    if(!playMove(Number(cell.dataset.r), Number(cell.dataset.c))){
       hintText.textContent = ILLEGAL_TEXT;
       hintText.classList.add('warn');
     }
@@ -763,11 +1577,21 @@
     if(game) render();
   });
 
+  // Tell an online opponent we're leaving when the tab closes.
+  window.addEventListener('pagehide', () => sendToPeer({ type: 'bye' }));
+
   /* =========================================================
      Boot
      ========================================================= */
 
-  renderCornerPicker();
+  // Pure rules and computer logic, exposed for the automated tests.
+  window.KnightsIsolation = {
+    EMBER, FROST, createGame, cloneGame, legalMoves, makeMove, chooseComputerMove
+  };
+
+  const joinId = URL_PARAMS.get('join');
+  if(joinId) joinGame(joinId);
+  else showScreen('menu');
 })();
 </script>
 </body>

@@ -1,76 +1,39 @@
 /*
- * End-to-end test for index.html, run in headless Chromium.
+ * "Two players, one device" mode, run in headless Chromium.
  *
  * Plays many complete random games from every starting corner. On every
  * turn it compares what the page shows (legal-move dots, clickable squares,
- * burned squares, turn text) against an independent model of the rules
- * written here, so a rules bug in the page cannot hide behind itself.
- *
- * Run with:  npm test
+ * burned squares, turn text) against the independent rules in helpers.js,
+ * so a rules bug in the page cannot hide behind itself.
  */
 'use strict';
 
 const path = require('path');
 const assert = require('assert');
-const { chromium } = require('playwright');
+const {
+  SCREENSHOT_DIR, SIZE, EMBER, FROST,
+  mulberry32, key, sortedKeys, expectedMoves,
+  readBoard, clickSquare, newPage, runSuite
+} = require('./helpers');
 
-const PAGE_URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
-const SCREENSHOT_DIR = path.resolve(__dirname, '..', 'test-results');
 const GAMES_PER_CORNER = 8;
 const SEED = 12345;
 
-const SIZE = 8;
-const KNIGHT_OFFSETS = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-const EMBER = '🔥';
-const FROST = '❄️';
-
-/* ---------- Helpers ---------- */
-
-/** Small seeded PRNG so failures are reproducible. */
-function mulberry32(seed){
-  return function(){
-    seed = (seed + 0x6D2B79F5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+/** Menu → "Two players, one device" → corner → start. */
+async function startLocalGame(page, corner){
+  await page.click('[data-mode=local]');
+  assert(await page.isHidden('#sideSection'), 'side picker should be hidden in local mode');
+  await page.click(`[data-corner=${corner}]`);
+  assert.strictEqual(await page.getAttribute(`[data-corner=${corner}]`, 'aria-pressed'), 'true');
+  await page.click('#startBtn');
 }
-
-const key = (r, c) => r * SIZE + c;
-const sortedKeys = (squares) => squares.map(([r, c]) => key(r, c)).sort((a, b) => a - b);
-
-/** Reference implementation of the rules: where can a knight at `from` jump? */
-function expectedMoves(from, other, burned){
-  return KNIGHT_OFFSETS
-    .map(([dr, dc]) => [from[0] + dr, from[1] + dc])
-    .filter(([r, c]) =>
-      r >= 0 && r < SIZE && c >= 0 && c < SIZE &&
-      !burned.has(key(r, c)) &&
-      !(r === other[0] && c === other[1]));
-}
-
-/** Reads every square's state from the page. */
-function readBoard(page){
-  return page.$$eval('.cell', cells => cells.map(cell => ({
-    r: Number(cell.dataset.r),
-    c: Number(cell.dataset.c),
-    disabled: cell.disabled,
-    burned: cell.classList.contains('inactive'),
-    dot: cell.classList.contains('legal'),
-    piece: cell.querySelector('.piece')?.textContent || null,
-    label: cell.getAttribute('aria-label')
-  })));
-}
-
-const clickSquare = (page, r, c) => page.click(`.cell[data-r="${r}"][data-c="${c}"]`);
-
-/* ---------- Test sections ---------- */
 
 /** Plays one full random game with hints on, checking every turn. */
 async function playRandomGame(page, random){
   const burned = new Set();
   let mover = EMBER;
   let moves = 0;
+  let blockedTurns = 0; // turns where a burned square blocked at least one move
 
   for(;;){
     const board = await readBoard(page);
@@ -87,11 +50,12 @@ async function playRandomGame(page, random){
       assert.strictEqual(expectedMoves(pos[loser], pos[winner], burned).length, 0, 'loser still had a legal move');
       assert(board.every(sq => sq.disabled), 'squares still clickable after game over');
       assert(!(await page.textContent('#hintText')).includes('Tap a glowing'), 'stale hint text after game over');
-      return { winner, moves };
+      return { winner, moves, blockedTurns };
     }
 
     const opponent = mover === EMBER ? FROST : EMBER;
     const expected = expectedMoves(pos[mover], pos[opponent], burned);
+    blockedTurns += expectedMoves(pos[mover], pos[opponent], burned, true).length > expected.length ? 1 : 0;
     assert(expected.length > 0, 'current player is stuck but the game is not over');
     assert((await page.textContent('#turnText')).includes(mover === EMBER ? 'Ember' : 'Frost'), 'wrong turn text');
     assert((await page.textContent('#movesLeft')).startsWith(String(expected.length)), 'wrong legal-move count');
@@ -112,23 +76,24 @@ async function playRandomGame(page, random){
 async function testRandomGames(page){
   const random = mulberry32(SEED);
   const wins = { [EMBER]: 0, [FROST]: 0 };
-  let games = 0, moves = 0;
+  let games = 0, moves = 0, blockedTurns = 0;
 
   for(const corner of ['tl', 'tr', 'bl', 'br']){
-    if(await page.isVisible('#gameScreen')) await page.click('#restartBtn');
-    await page.click(`[data-corner=${corner}]`);
-    assert.strictEqual(await page.getAttribute(`[data-corner=${corner}]`, 'aria-pressed'), 'true');
-    await page.click('#startBtn');
+    if(await page.isVisible('#gameScreen')) await page.click('#menuBtn');
+    await startLocalGame(page, corner);
 
     for(let i = 0; i < GAMES_PER_CORNER; i++){
       if(i > 0) await page.click('#rematchBtn');
       const result = await playRandomGame(page, random);
       wins[result.winner]++;
       moves += result.moves;
+      blockedTurns += result.blockedTurns;
       games++;
     }
   }
-  console.log(`  ✓ ${games} random games, ${moves} moves (Ember ${wins[EMBER]} – Frost ${wins[FROST]})`);
+  assert(blockedTurns > 0, 'no turn ever had a move blocked by a burned square — path rule not exercised');
+  console.log(`  ✓ ${games} random games, ${moves} moves (Ember ${wins[EMBER]} – Frost ${wins[FROST]}); ` +
+    `${blockedTurns} turns had moves blocked by burned squares`);
 }
 
 async function testHintsOff(page){
@@ -158,42 +123,27 @@ async function testHintsOff(page){
   console.log('  ✓ hints-off mode');
 }
 
-async function testNewSetup(page){
-  await page.click('#restartBtn');
+async function testMenuNavigation(page){
+  await page.click('#menuBtn');
+  assert(await page.isVisible('#menuScreen'), 'menu not shown');
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'menu.png') });
+
+  await page.click('[data-mode=local]');
   assert(await page.isVisible('#setupScreen'), 'setup screen not shown');
   assert(await page.isDisabled('#startBtn'), 'start button enabled with no corner picked');
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'setup.png') });
-  console.log('  ✓ new setup resets the corner picker');
+
+  await page.click('#setupBackBtn');
+  assert(await page.isVisible('#menuScreen'), 'back button did not return to the menu');
+  console.log('  ✓ menu, setup and back navigation');
 }
 
-/* ---------- Runner ---------- */
+runSuite('Two players, one device', async ({ context, url, errors }) => {
+  const page = await newPage(context, errors);
+  await page.goto(url);
+  assert(await page.isVisible('#menuScreen'), 'menu should be the first screen');
 
-(async () => {
-  const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 400, height: 900 } });
-
-  // Collect page errors; ignore Google Fonts failing to load (e.g. offline).
-  const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', msg => {
-    if(msg.type() === 'error' && !/fonts\.(googleapis|gstatic)/.test(msg.text())) errors.push(msg.text());
-  });
-
-  try {
-    await page.goto(PAGE_URL);
-    assert(await page.isDisabled('#startBtn'), 'start button enabled before picking a corner');
-
-    await testRandomGames(page);
-    await testHintsOff(page);
-    await testNewSetup(page);
-
-    assert.deepStrictEqual(errors, [], 'console errors:\n' + errors.join('\n'));
-    console.log('All tests passed.');
-  } catch(err){
-    console.error('Test failed:', err.message);
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'failure.png'), fullPage: true }).catch(() => {});
-    process.exitCode = 1;
-  } finally {
-    await browser.close();
-  }
-})();
+  await testRandomGames(page);
+  await testHintsOff(page);
+  await testMenuNavigation(page);
+});

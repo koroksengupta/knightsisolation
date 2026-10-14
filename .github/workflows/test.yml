@@ -1,4 +1,4 @@
-# Runs the browser test (tests/game.test.js) against index.html.
+# Runs the browser tests in tests/ against index.html.
 name: Test
 
 on:
@@ -32,5 +32,36 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
+          path: test-results/
+          if-no-files-found: ignore
+
+  # Online play over the real PeerJS service. It depends on a free public
+  # server outside our control, so a failure here is reported but doesn't
+  # fail the build; the main job covers the same logic with a local stand-in.
+  online-peerjs:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run online test with real PeerJS
+        run: npm run test:peerjs
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-peerjs
           path: test-results/
           if-no-files-found: ignore

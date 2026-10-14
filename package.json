@@ -1,9 +1,10 @@
 {
   "name": "knights-isolation",
   "private": true,
-  "description": "Knight's Isolation — a two-player browser game.",
+  "description": "Knight's Isolation \u2014 a two-player browser game.",
   "scripts": {
-    "test": "node tests/game.test.js"
+    "test": "node tests/game.test.js && node tests/computer.test.js && node tests/online.test.js",
+    "test:peerjs": "ONLINE_TRANSPORT=peerjs node tests/online.test.js"
   },
   "devDependencies": {
     "playwright": "1.56.1"
