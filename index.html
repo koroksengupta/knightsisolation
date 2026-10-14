@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knight's Isolation — Fire &amp; Ice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     Design tokens
+     ========================================================= */
+  :root{
+    /* App chrome */
+    --bg:#12141a;
+    --panel:#1c1f28;
+    --panel-edge:#2a2e3a;
+    --cream:#f4ede0;
+    --dim:#8b93a3;
+    --gold:#e8c34a;
+
+    /* Board */
+    --square-light:#f7f7f7;
+    --square-dark:#141414;
+    --board-frame:#3a3a3a;
+    --burned:#ff2f6e;        /* squares a knight has left */
+    --burned-deep:#7a0f34;
+
+    /* Player 1 — Ember */
+    --ember:#ea6a34;
+    --ember-deep:#5e2712;
+    --ember-glow:#ff9a5c;
+
+    /* Player 2 — Frost */
+    --frost:#3aa0c9;
+    --frost-deep:#12374a;
+    --frost-glow:#8fe0ff;
+  }
+
+  /* =========================================================
+     Base layout
+     ========================================================= */
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 20% 0%, #1a1e2a 0%, var(--bg) 55%),
+      var(--bg);
+    color:var(--cream);
+    font-family:'Nunito',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:28px 14px 40px;
+  }
+  .app{
+    width:100%;
+    max-width:480px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+  }
+  h1{
+    font-family:'Fredoka',sans-serif;
+    font-weight:700;
+    font-size:clamp(24px,6vw,32px);
+    margin:0;
+    text-align:center;
+    letter-spacing:0.3px;
+  }
+  h1 .torch{color:var(--ember-glow);}
+  h1 .drop{color:var(--frost-glow);}
+  .tagline{
+    font-size:14px;
+    color:var(--dim);
+    text-align:center;
+    margin-top:-8px;
+    margin-bottom:4px;
+  }
+  .hidden{display:none !important;}
+
+  /* Player-coloured name highlights, used in several places. */
+  b.e{color:var(--ember-glow);}
+  b.f{color:var(--frost-glow);}
+
+  /* =========================================================
+     Setup screen
+     ========================================================= */
+  .card{
+    background:var(--panel);
+    border:1px solid var(--panel-edge);
+    border-radius:18px;
+    padding:20px 18px 22px;
+    width:100%;
+  }
+  .rules{
+    font-size:14.5px;
+    line-height:1.55;
+    color:#c9cfda;
+    margin:0 0 16px;
+  }
+  .rules b{color:var(--cream);}
+  .setup-label{
+    font-family:'Fredoka',sans-serif;
+    font-size:15px;
+    font-weight:600;
+    color:var(--gold);
+    margin-bottom:10px;
+    text-align:center;
+  }
+  .corner-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:10px;
+    aspect-ratio:1/1;
+    max-width:280px;
+    margin:0 auto 16px;
+  }
+  .corner-btn{
+    font-family:'Fredoka',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    color:var(--cream);
+    background:var(--panel-edge);
+    border:2px solid transparent;
+    border-radius:14px;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:8px;
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .corner-btn .arrow{font-size:26px;}
+  .corner-btn:hover{transform:translateY(-2px);}
+  .corner-btn:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
+  .corner-btn.picked-ember{background:var(--ember-deep); border-color:var(--ember);}
+  .corner-btn.picked-frost{background:var(--frost-deep); border-color:var(--frost);}
+  .corner-btn.faded{opacity:.35;}
+
+  .pick-summary{
+    text-align:center;
+    font-size:13.5px;
+    color:var(--dim);
+    min-height:18px;
+    margin-bottom:12px;
+  }
+  .start-btn{
+    display:block;
+    width:100%;
+    font-family:'Fredoka',sans-serif;
+    font-size:17px;
+    font-weight:600;
+    color:#1a1108;
+    background:linear-gradient(180deg,var(--gold),#c9a02f);
+    border:none;
+    border-radius:14px;
+    padding:13px;
+    cursor:pointer;
+    transition:transform .12s ease, opacity .12s ease;
+  }
+  .start-btn:disabled{opacity:.35; cursor:not-allowed;}
+  .start-btn:not(:disabled):hover{transform:translateY(-2px);}
+  .start-btn:focus-visible{outline:3px solid var(--cream); outline-offset:2px;}
+
+  /* =========================================================
+     Game screen
+     ========================================================= */
+  .game-screen{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+  }
+
+  /* --- Turn banner --- */
+  .turn-banner{
+    width:100%;
+    border-radius:16px;
+    padding:12px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:16px;
+    transition:background .2s ease;
+  }
+  .turn-banner.p1{background:linear-gradient(90deg,var(--ember-deep),var(--ember) 130%);}
+  .turn-banner.p2{background:linear-gradient(90deg,var(--frost-deep),var(--frost) 130%);}
+  .turn-banner .moves-left{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    font-weight:500;
+    background:rgba(0,0,0,.25);
+    padding:4px 9px;
+    border-radius:20px;
+  }
+
+  /* --- Board --- */
+  .board-frame{
+    background:linear-gradient(160deg,var(--board-frame),#0a0a0a);
+    padding:10px;
+    border-radius:16px;
+    width:100%;
+    box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.04);
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    grid-template-rows:repeat(8,1fr);
+    aspect-ratio:1/1;
+    width:100%;
+    border-radius:8px;
+    overflow:hidden;
+  }
+
+  /* Each square is a <button> so the board is keyboard-playable. */
+  .cell{
+    position:relative;
+    appearance:none;
+    border:none;
+    border-radius:0;
+    padding:0;
+    margin:0;
+    font:inherit;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(16px,4.6vw,26px);
+    cursor:pointer;
+  }
+  .cell:disabled{cursor:default;}
+  .cell.light{background:var(--square-light);}
+  .cell.dark{background:var(--square-dark);}
+  .cell.inactive{background:var(--burned);}
+  .cell.inactive::before{
+    content:'';
+    position:absolute; inset:0;
+    opacity:.6;
+    background-image:radial-gradient(circle at 30% 30%, rgba(255,255,255,.16) 0, transparent 45%, var(--burned-deep) 100%);
+  }
+  .cell .piece{
+    position:relative;
+    z-index:2;
+    line-height:1;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));
+  }
+  .cell:focus-visible{outline:3px solid var(--gold); outline-offset:-3px; z-index:3;}
+
+  /* Gold "you can move here" marker, only shown while hints are on. */
+  .cell.legal .dot{
+    position:absolute;
+    width:28%;
+    height:28%;
+    border-radius:50%;
+    background:var(--gold);
+    opacity:.85;
+    box-shadow:0 0 10px 2px rgba(232,195,74,.7);
+  }
+  .cell.legal:hover{box-shadow:inset 0 0 0 3px var(--gold);}
+  @media (prefers-reduced-motion:no-preference){
+    .cell.legal .dot{animation:pulse 1.1s ease-in-out infinite;}
+  }
+  @keyframes pulse{
+    0%,100%{transform:scale(1); opacity:.85;}
+    50%{transform:scale(1.25); opacity:.5;}
+  }
+
+  /* --- Move counters --- */
+  .legend{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    color:var(--dim);
+    padding:0 4px;
+  }
+
+  .hint{
+    font-size:13px;
+    color:var(--dim);
+    text-align:center;
+    margin:0;
+    min-height:1.2em;
+  }
+  .hint.warn{color:var(--gold);}
+
+  /* --- "Show possible moves" toggle switch --- */
+  .settings-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    font-size:13.5px;
+    color:var(--dim);
+  }
+  .switch{position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0;}
+  .switch input{opacity:0; width:0; height:0; position:absolute;}
+  .switch .slider{
+    position:absolute; inset:0; cursor:pointer;
+    background:#3a3f4d; border-radius:24px; transition:.2s;
+  }
+  .switch .slider::before{
+    content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px;
+    background:var(--cream); border-radius:50%; transition:.2s;
+  }
+  .switch input:checked + .slider{background:var(--gold);}
+  .switch input:checked + .slider::before{transform:translateX(18px); background:#1a1108;}
+  .switch input:focus-visible + .slider{outline:2px solid var(--cream); outline-offset:2px;}
+
+  /* --- Game-over banner --- */
+  .win-banner{
+    width:100%;
+    border-radius:16px;
+    padding:18px 16px;
+    text-align:center;
+    background:linear-gradient(180deg,#2a2418,#1c1f28);
+    border:1px solid var(--gold);
+  }
+  .win-banner .trophy{font-size:34px;}
+  .win-banner h2{
+    font-family:'Fredoka',sans-serif;
+    margin:6px 0 4px;
+    font-size:20px;
+  }
+  .win-banner p{margin:0; color:var(--dim); font-size:14px;}
+
+  /* --- Restart / rematch buttons --- */
+  .row{display:flex; flex-wrap:wrap; gap:10px; width:100%; justify-content:center;}
+  .restart-btn{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--cream);
+    background:var(--panel-edge);
+    border:1px solid #3a3f4d;
+    border-radius:12px;
+    padding:9px 16px;
+    cursor:pointer;
+  }
+  .restart-btn:hover{background:#343947;}
+  .restart-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <h1><span class="torch" aria-hidden="true">🔥</span> Knight's Isolation <span class="drop" aria-hidden="true">❄️</span></h1>
+  <p class="tagline">Two knights. One shrinking board. Last knight who can move wins.</p>
+
+  <!-- ============ SETUP SCREEN ============ -->
+  <section class="card" id="setupScreen" aria-label="Game setup">
+    <p class="rules">
+      Each knight hops like a chess knight <b>(2 squares one way, 1 the other)</b>,
+      jumping over anything in between.
+      Every square a knight leaves is gone for good — nobody can land there again.
+      If it's your turn and your knight has <b>nowhere legal to go, you lose.</b>
+    </p>
+    <div class="setup-label" id="cornerLabel">Pick Ember's 🔥 starting corner</div>
+    <div class="corner-grid" id="cornerGrid" role="group" aria-labelledby="cornerLabel">
+      <button type="button" class="corner-btn" data-corner="tl" aria-pressed="false"><span class="arrow" aria-hidden="true">↖</span>Top&#8209;Left</button>
+      <button type="button" class="corner-btn" data-corner="tr" aria-pressed="false"><span class="arrow" aria-hidden="true">↗</span>Top&#8209;Right</button>
+      <button type="button" class="corner-btn" data-corner="bl" aria-pressed="false"><span class="arrow" aria-hidden="true">↙</span>Bottom&#8209;Left</button>
+      <button type="button" class="corner-btn" data-corner="br" aria-pressed="false"><span class="arrow" aria-hidden="true">↘</span>Bottom&#8209;Right</button>
+    </div>
+    <p class="pick-summary" id="pickSummary" aria-live="polite"></p>
+    <button type="button" class="start-btn" id="startBtn" disabled>Start Game</button>
+  </section>
+
+  <!-- ============ GAME SCREEN ============ -->
+  <section id="gameScreen" class="game-screen hidden" aria-label="Game">
+    <div class="turn-banner" id="turnBanner" aria-live="polite">
+      <span id="turnText"></span>
+      <span class="moves-left" id="movesLeft"></span>
+    </div>
+
+    <div class="board-frame">
+      <!-- 64 square buttons are generated by buildBoard(). -->
+      <div class="board" id="board" role="group" aria-label="Board"></div>
+    </div>
+
+    <div class="legend">
+      <span>🔥 <b class="e">Ember</b> moved: <span id="p1count">0</span></span>
+      <span><b class="f">Frost</b> ❄️ moved: <span id="p2count">0</span></span>
+    </div>
+
+    <div class="settings-row">
+      <label for="hintsToggle">Show possible moves</label>
+      <label class="switch">
+        <input type="checkbox" id="hintsToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <p class="hint" id="hintText" aria-live="polite"></p>
+
+    <div id="winBanner" class="win-banner hidden" role="status">
+      <div class="trophy" aria-hidden="true">🏆</div>
+      <h2 id="winText"></h2>
+      <p id="winSub"></p>
+    </div>
+
+    <div class="row">
+      <button type="button" class="restart-btn" id="restartBtn">↺ New Setup</button>
+      <button type="button" class="restart-btn" id="rematchBtn">⚔ Same Corners, Rematch</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     Constants
+     ========================================================= */
+
+  const BOARD_SIZE = 8;
+
+  // Player ids. Ember always moves first.
+  const EMBER = 1;
+  const FROST = 2;
+
+  const PLAYERS = {
+    [EMBER]: { name: 'Ember', icon: '🔥', bannerClass: 'p1' },
+    [FROST]: { name: 'Frost', icon: '❄️', bannerClass: 'p2' }
+  };
+
+  // Starting corners, keyed by the data-corner attribute on the setup buttons.
+  const CORNERS = {
+    tl: { r: 0,              c: 0,              label: 'Top-Left',     arrow: '↖' },
+    tr: { r: 0,              c: BOARD_SIZE - 1, label: 'Top-Right',    arrow: '↗' },
+    bl: { r: BOARD_SIZE - 1, c: 0,              label: 'Bottom-Left',  arrow: '↙' },
+    br: { r: BOARD_SIZE - 1, c: BOARD_SIZE - 1, label: 'Bottom-Right', arrow: '↘' }
+  };
+
+  // Frost always starts in the corner diagonally opposite Ember.
+  const OPPOSITE = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' };
+
+  // The eight (row, column) jumps a chess knight can make.
+  const KNIGHT_OFFSETS = [
+    [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+    [ 1, -2], [ 1, 2], [ 2, -1], [ 2, 1]
+  ];
+
+  const HINT_ON_TEXT  = 'Tap a glowing gold square to move.';
+  const HINT_OFF_TEXT = 'No glowing squares this time — work out the knight move, then tap your square.';
+  const ILLEGAL_TEXT  = "That isn't a legal knight move — try another square.";
+  const GAME_OVER_TEXT = 'Play a rematch from the same corners, or pick new ones.';
+
+  /* =========================================================
+     DOM references
+     ========================================================= */
+
+  const $ = (id) => document.getElementById(id);
+
+  const setupScreen = $('setupScreen');
+  const gameScreen  = $('gameScreen');
+  const cornerGrid  = $('cornerGrid');
+  const pickSummary = $('pickSummary');
+  const startBtn    = $('startBtn');
+  const boardEl     = $('board');
+  const turnBanner  = $('turnBanner');
+  const turnText    = $('turnText');
+  const movesLeftEl = $('movesLeft');
+  const moveCountEls = { [EMBER]: $('p1count'), [FROST]: $('p2count') };
+  const winBanner   = $('winBanner');
+  const winText     = $('winText');
+  const winSub      = $('winSub');
+  const restartBtn  = $('restartBtn');
+  const rematchBtn  = $('rematchBtn');
+  const hintsToggle = $('hintsToggle');
+  const hintText    = $('hintText');
+
+  /* =========================================================
+     State
+     ========================================================= */
+
+  let chosenCorner = null;           // Ember's corner key ('tl' | 'tr' | 'bl' | 'br'), or null
+  let game = null;                   // Current game (see createGame), or null before the first game
+  let hintsOn = hintsToggle.checked; // Whether legal moves are highlighted
+  let cellEls = [];                  // cellEls[r][c] -> the <button> for that square
+
+  /* =========================================================
+     Game rules (pure logic — no DOM access)
+     ========================================================= */
+
+  /**
+   * Builds a fresh game with Ember on `cornerKey` and Frost opposite.
+   * `burned[r][c]` is true once a knight has left that square.
+   */
+  function createGame(cornerKey){
+    const emberStart = CORNERS[cornerKey];
+    const frostStart = CORNERS[OPPOSITE[cornerKey]];
+    return {
+      burned: Array.from({ length: BOARD_SIZE }, () => new Array(BOARD_SIZE).fill(false)),
+      pos: {
+        [EMBER]: { r: emberStart.r, c: emberStart.c },
+        [FROST]: { r: frostStart.r, c: frostStart.c }
+      },
+      current: EMBER,
+      moveCounts: { [EMBER]: 0, [FROST]: 0 },
+      over: false,
+      winner: null
+    };
+  }
+
+  function opponentOf(player){
+    return player === EMBER ? FROST : EMBER;
+  }
+
+  function isOnBoard(r, c){
+    return r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE;
+  }
+
+  /**
+   * Every square `player`'s knight can jump to: on the board, not burned,
+   * and not occupied by the other knight. Like a real chess knight it jumps,
+   * so squares in between never block it.
+   */
+  function legalMoves(g, player){
+    const from = g.pos[player];
+    const other = g.pos[opponentOf(player)];
+    const moves = [];
+    for(const [dr, dc] of KNIGHT_OFFSETS){
+      const r = from.r + dr, c = from.c + dc;
+      if(!isOnBoard(r, c)) continue;
+      if(g.burned[r][c]) continue;
+      if(r === other.r && c === other.c) continue;
+      moves.push({ r, c });
+    }
+    return moves;
+  }
+
+  function containsSquare(squares, r, c){
+    return squares.some(sq => sq.r === r && sq.c === c);
+  }
+
+  /**
+   * Moves the current player's knight to (r, c), burning the square it left.
+   * Returns false (and changes nothing) if the move is illegal.
+   * If the opponent is then left with no legal move, the mover wins;
+   * otherwise the turn passes to the opponent.
+   */
+  function makeMove(g, r, c){
+    if(g.over || !containsSquare(legalMoves(g, g.current), r, c)) return false;
+
+    const mover = g.current;
+    const from = g.pos[mover];
+    g.burned[from.r][from.c] = true;
+    g.pos[mover] = { r, c };
+    g.moveCounts[mover]++;
+
+    const next = opponentOf(mover);
+    if(legalMoves(g, next).length === 0){
+      g.over = true;
+      g.winner = mover;
+    } else {
+      g.current = next;
+    }
+    return true;
+  }
+
+  /* =========================================================
+     Setup screen
+     ========================================================= */
+
+  function renderCornerPicker(){
+    for(const btn of cornerGrid.querySelectorAll('.corner-btn')){
+      const key = btn.dataset.corner;
+      btn.classList.remove('picked-ember', 'picked-frost', 'faded');
+      btn.setAttribute('aria-pressed', String(key === chosenCorner));
+      if(!chosenCorner) continue;
+      if(key === chosenCorner)                 btn.classList.add('picked-ember');
+      else if(key === OPPOSITE[chosenCorner])  btn.classList.add('picked-frost');
+      else                                     btn.classList.add('faded');
+    }
+
+    if(chosenCorner){
+      const e = CORNERS[chosenCorner];
+      const f = CORNERS[OPPOSITE[chosenCorner]];
+      pickSummary.innerHTML =
+        `<b class="e">🔥 Ember</b> starts ${e.arrow} ${e.label} · ` +
+        `<b class="f">❄️ Frost</b> starts ${f.arrow} ${f.label}`;
+    } else {
+      pickSummary.textContent = 'Frost ❄️ will start in the opposite corner.';
+    }
+    startBtn.disabled = !chosenCorner;
+  }
+
+  function showSetup(){
+    gameScreen.classList.add('hidden');
+    setupScreen.classList.remove('hidden');
+    chosenCorner = null;
+    renderCornerPicker();
+  }
+
+  /* =========================================================
+     Game screen
+     ========================================================= */
+
+  /** Chess-style name for a square, e.g. row 0 / col 0 -> "a8". */
+  function squareName(r, c){
+    return String.fromCharCode(97 + c) + (BOARD_SIZE - r);
+  }
+
+  /** Creates the 64 square buttons once; render() updates them afterwards. */
+  function buildBoard(){
+    boardEl.replaceChildren();
+    cellEls = [];
+    for(let r = 0; r < BOARD_SIZE; r++){
+      const row = [];
+      for(let c = 0; c < BOARD_SIZE; c++){
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        boardEl.appendChild(cell);
+        row.push(cell);
+      }
+      cellEls.push(row);
+    }
+  }
+
+  function startGame(cornerKey){
+    game = createGame(cornerKey);
+    setupScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    if(cellEls.length === 0) buildBoard();
+    render();
+  }
+
+  /** Returns the player whose knight stands on (r, c), or null. */
+  function knightAt(r, c){
+    for(const player of [EMBER, FROST]){
+      const p = game.pos[player];
+      if(p.r === r && p.c === c) return player;
+    }
+    return null;
+  }
+
+  /** Redraws the board and status panels from `game`. */
+  function render(){
+    const moves = game.over ? [] : legalMoves(game, game.current);
+
+    for(let r = 0; r < BOARD_SIZE; r++){
+      for(let c = 0; c < BOARD_SIZE; c++){
+        renderCell(cellEls[r][c], r, c, containsSquare(moves, r, c));
+      }
+    }
+
+    for(const player of [EMBER, FROST]){
+      moveCountEls[player].textContent = game.moveCounts[player];
+    }
+
+    hintText.classList.remove('warn');
+
+    if(game.over){
+      const winner = PLAYERS[game.winner];
+      const loser = PLAYERS[opponentOf(game.winner)];
+      turnBanner.classList.add('hidden');
+      winBanner.classList.remove('hidden');
+      winText.textContent = `${winner.icon} ${winner.name} wins!`;
+      winSub.textContent = `${loser.name} has no legal moves left.`;
+      hintText.textContent = GAME_OVER_TEXT;
+    } else {
+      const current = PLAYERS[game.current];
+      winBanner.classList.add('hidden');
+      turnBanner.classList.remove('hidden');
+      turnBanner.classList.toggle('p1', game.current === EMBER);
+      turnBanner.classList.toggle('p2', game.current === FROST);
+      turnText.textContent = `${current.icon} ${current.name}'s turn`;
+      movesLeftEl.textContent = moves.length + (moves.length === 1 ? ' legal move' : ' legal moves');
+      hintText.textContent = hintsOn ? HINT_ON_TEXT : HINT_OFF_TEXT;
+    }
+  }
+
+  /**
+   * Updates one square's look, content, clickability and screen-reader label.
+   *
+   * With hints on, only legal squares are clickable. With hints off, every
+   * open square is clickable, so keyboard focus can't give the answer away;
+   * an illegal pick just shows a warning.
+   */
+  function renderCell(cell, r, c, isLegal){
+    const burned = game.burned[r][c];
+    const knight = knightAt(r, c);
+    const showDot = isLegal && hintsOn;
+
+    cell.classList.toggle('inactive', burned);
+    cell.classList.toggle('legal', showDot);
+    cell.disabled = game.over || burned || knight !== null || (hintsOn && !isLegal);
+
+    let content = null;
+    let description;
+    if(knight !== null){
+      content = document.createElement('span');
+      content.className = 'piece';
+      content.textContent = PLAYERS[knight].icon;
+      description = `${PLAYERS[knight].name}'s knight`;
+    } else if(burned){
+      description = 'burned';
+    } else if(showDot){
+      content = document.createElement('span');
+      content.className = 'dot';
+      description = 'legal move';
+    } else {
+      description = 'open';
+    }
+
+    if(content) cell.replaceChildren(content);
+    else        cell.replaceChildren();
+    cell.setAttribute('aria-label', `${squareName(r, c)}, ${description}`);
+  }
+
+  /* =========================================================
+     Event handlers
+     ========================================================= */
+
+  cornerGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.corner-btn');
+    if(!btn) return;
+    chosenCorner = btn.dataset.corner;
+    renderCornerPicker();
+  });
+
+  startBtn.addEventListener('click', () => {
+    if(chosenCorner) startGame(chosenCorner);
+  });
+
+  restartBtn.addEventListener('click', showSetup);
+
+  rematchBtn.addEventListener('click', () => {
+    if(chosenCorner) startGame(chosenCorner);
+  });
+
+  // One delegated listener for all 64 squares.
+  boardEl.addEventListener('click', (e) => {
+    const cell = e.target.closest('.cell');
+    if(!cell || cell.disabled || !game || game.over) return;
+    const r = Number(cell.dataset.r);
+    const c = Number(cell.dataset.c);
+    if(makeMove(game, r, c)){
+      render();
+    } else {
+      hintText.textContent = ILLEGAL_TEXT;
+      hintText.classList.add('warn');
+    }
+  });
+
+  hintsToggle.addEventListener('change', () => {
+    hintsOn = hintsToggle.checked;
+    if(game) render();
+  });
+
+  /* =========================================================
+     Boot
+     ========================================================= */
+
+  renderCornerPicker();
+})();
+</script>
+</body>
+</html>
