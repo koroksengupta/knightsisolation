@@ -360,9 +360,9 @@
   <!-- ============ SETUP SCREEN ============ -->
   <section class="card" id="setupScreen" aria-label="Game setup">
     <p class="rules">
-      Each knight hops like a chess knight <b>(2 squares one way, 1 the other)</b>,
-      jumping over anything in between.
-      Every square a knight leaves is gone for good — nobody can land there again.
+      Each knight moves in an L like a chess knight <b>(2 squares one way, then 1 to the side)</b>.
+      Every square a knight leaves is gone for good — nobody can land there again,
+      and <b>a knight can't pass over a gone square</b> on the 2-square part of its L.
       If it's your turn and your knight has <b>nowhere legal to go, you lose.</b>
     </p>
     <div class="setup-label" id="cornerLabel">Pick Ember's 🔥 starting corner</div>
@@ -523,9 +523,24 @@
   }
 
   /**
-   * Every square `player`'s knight can jump to: on the board, not burned,
-   * and not occupied by the other knight. Like a real chess knight it jumps,
-   * so squares in between never block it.
+   * The two squares a knight travels over on the long (2-square) leg of its
+   * L, before the final sideways step. E.g. for "2 up, 1 right" these are the
+   * squares 1 up and 2 up, directly above the start.
+   */
+  function pathSquares(from, dr, dc){
+    if(Math.abs(dr) === 2){
+      const step = dr / 2;
+      return [{ r: from.r + step, c: from.c }, { r: from.r + dr, c: from.c }];
+    }
+    const step = dc / 2;
+    return [{ r: from.r, c: from.c + step }, { r: from.r, c: from.c + dc }];
+  }
+
+  /**
+   * Every square `player`'s knight can move to: on the board, not burned,
+   * not occupied by the other knight, and with no burned square on the long
+   * leg of the L (see pathSquares). Unlike a chess knight, it cannot jump
+   * over burned squares.
    */
   function legalMoves(g, player){
     const from = g.pos[player];
@@ -536,6 +551,7 @@
       if(!isOnBoard(r, c)) continue;
       if(g.burned[r][c]) continue;
       if(r === other.r && c === other.c) continue;
+      if(pathSquares(from, dr, dc).some(sq => g.burned[sq.r][sq.c])) continue;
       moves.push({ r, c });
     }
     return moves;

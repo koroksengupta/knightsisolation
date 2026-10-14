@@ -39,14 +39,28 @@ function mulberry32(seed){
 const key = (r, c) => r * SIZE + c;
 const sortedKeys = (squares) => squares.map(([r, c]) => key(r, c)).sort((a, b) => a - b);
 
-/** Reference implementation of the rules: where can a knight at `from` jump? */
-function expectedMoves(from, other, burned){
+/** Squares crossed on the long (2-square) leg of a knight's L. */
+function longLeg([r0, c0], dr, dc){
+  return Math.abs(dr) === 2
+    ? [[r0 + Math.sign(dr), c0], [r0 + dr, c0]]
+    : [[r0, c0 + Math.sign(dc)], [r0, c0 + dc]];
+}
+
+/**
+ * Reference implementation of the rules: where can a knight at `from` move?
+ * With `ignorePath` it behaves like a chess knight that jumps over anything;
+ * used to check that the "can't cross a burned square" rule really bites.
+ */
+function expectedMoves(from, other, burned, ignorePath = false){
   return KNIGHT_OFFSETS
-    .map(([dr, dc]) => [from[0] + dr, from[1] + dc])
-    .filter(([r, c]) =>
-      r >= 0 && r < SIZE && c >= 0 && c < SIZE &&
-      !burned.has(key(r, c)) &&
-      !(r === other[0] && c === other[1]));
+    .filter(([dr, dc]) => {
+      const r = from[0] + dr, c = from[1] + dc;
+      return r >= 0 && r < SIZE && c >= 0 && c < SIZE &&
+        !burned.has(key(r, c)) &&
+        !(r === other[0] && c === other[1]) &&
+        (ignorePath || longLeg(from, dr, dc).every(([pr, pc]) => !burned.has(key(pr, pc))));
+    })
+    .map(([dr, dc]) => [from[0] + dr, from[1] + dc]);
 }
 
 /** Reads every square's state from the page. */
@@ -71,6 +85,7 @@ async function playRandomGame(page, random){
   const burned = new Set();
   let mover = EMBER;
   let moves = 0;
+  let blockedTurns = 0; // turns where a burned square blocked at least one move
 
   for(;;){
     const board = await readBoard(page);
@@ -87,11 +102,12 @@ async function playRandomGame(page, random){
       assert.strictEqual(expectedMoves(pos[loser], pos[winner], burned).length, 0, 'loser still had a legal move');
       assert(board.every(sq => sq.disabled), 'squares still clickable after game over');
       assert(!(await page.textContent('#hintText')).includes('Tap a glowing'), 'stale hint text after game over');
-      return { winner, moves };
+      return { winner, moves, blockedTurns };
     }
 
     const opponent = mover === EMBER ? FROST : EMBER;
     const expected = expectedMoves(pos[mover], pos[opponent], burned);
+    blockedTurns += expectedMoves(pos[mover], pos[opponent], burned, true).length > expected.length ? 1 : 0;
     assert(expected.length > 0, 'current player is stuck but the game is not over');
     assert((await page.textContent('#turnText')).includes(mover === EMBER ? 'Ember' : 'Frost'), 'wrong turn text');
     assert((await page.textContent('#movesLeft')).startsWith(String(expected.length)), 'wrong legal-move count');
@@ -112,7 +128,7 @@ async function playRandomGame(page, random){
 async function testRandomGames(page){
   const random = mulberry32(SEED);
   const wins = { [EMBER]: 0, [FROST]: 0 };
-  let games = 0, moves = 0;
+  let games = 0, moves = 0, blockedTurns = 0;
 
   for(const corner of ['tl', 'tr', 'bl', 'br']){
     if(await page.isVisible('#gameScreen')) await page.click('#restartBtn');
@@ -125,10 +141,13 @@ async function testRandomGames(page){
       const result = await playRandomGame(page, random);
       wins[result.winner]++;
       moves += result.moves;
+      blockedTurns += result.blockedTurns;
       games++;
     }
   }
-  console.log(`  ✓ ${games} random games, ${moves} moves (Ember ${wins[EMBER]} – Frost ${wins[FROST]})`);
+  assert(blockedTurns > 0, 'no turn ever had a move blocked by a burned square — path rule not exercised');
+  console.log(`  ✓ ${games} random games, ${moves} moves (Ember ${wins[EMBER]} – Frost ${wins[FROST]}); ` +
+    `${blockedTurns} turns had moves blocked by burned squares`);
 }
 
 async function testHintsOff(page){
